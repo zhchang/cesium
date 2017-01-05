@@ -1,5 +1,5 @@
 from distutils.core import setup
-ver = '0.8'
+ver = '0.9'
 setup(
     name='cesium_grpc',
     packages=['cesium_grpc'],  # this must be the same as the name above
@@ -12,5 +12,5 @@ setup(
     download_url='https://github.com/zhchang/cesium/tarball/' + ver,
     keywords=['python', 'grpc', 'code gen'],  # arbitrary keywords
     classifiers=[],
-    data_files={'/usr/local/bin': ['cesium']},
+    data_files=[('/usr/local/bin', ['cesium'])],
 )

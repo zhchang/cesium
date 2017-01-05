@@ -88,6 +88,97 @@ def setup_protoc():
         exit('man I failed to play with protoc. can you setup on your own and talk to me again when you are done.')
 
 
+server_template = '''
+// {server-name} defines impl of grpc server
+type {server-name} struct{
+}
+'''
+api_template = '''
+// {api-name} impls grpc server handler interface
+func (*{server-name}) {api-body}{
+    // TODO: implement this API
+}
+'''
+
+
+def gen_server(name, members, request_type, reply_type):
+    name += 'Impl'
+    generated = server_template.replace('{server-name}', name)
+    for member in members:
+        api_name = member[:member.find('(')]
+        api = api_template
+        api = api.replace('{api-name}', api_name)
+        api = api.replace('{server-name}', name)
+        api = api.replace('{api-body}', member)
+        api = api.replace('*' + request_type, '*pb.' + request_type)
+        api = api.replace('*' + reply_type, '*pb.' + reply_type)
+        generated += api
+    print generated
+
+
+method_template = '''
+// {api-name} do rpc call
+func {api-name}(ctx context.Context, cc *grpc.ClientConn, in *pb.{request-type}, opts ...grpc.CallOption)(*pb.{reply-type}, error){
+    return New{client-name}(cc).{api-name}(ctx, in, opts)
+}
+'''
+
+
+def gen_client(name, members, request_type, reply_type):
+    generated = ''
+    for member in members:
+        api_name = member[:member.find('(')]
+        api = method_template.replace('{api-name}', api_name)
+        api = api.replace('{client-name}', name)
+        api = api.replace('{request-type}', request_type)
+        api = api.replace('{reply-type}', reply_type)
+        generated += api
+    print generated
+
+
+def parse_pbgo(path):
+    blocks = {}
+    flag = 'searching'
+    running_block = []
+    running_key = ''
+    valid_block = False
+    request_type = ''
+    reply_type = ''
+    with open(path, 'r') as f:
+        for line in f.xreadlines():
+            line = line.rstrip()
+            if flag == 'searching':
+                if line.find('type ') == 0:
+                    items = line.split(' ', 4)
+                    running_key = items[1]
+                    valid_block = items[2] == 'interface'
+                    running_block = []
+                    flag = 'reading'
+            elif flag == 'reading':
+                if line.find('}') == 0:
+                    flag = 'searching'
+                    if valid_block:
+                        blocks[running_key] = running_block
+                    else:
+                        if running_key[-7:] == 'Request':
+                            request_type = running_key
+                        elif running_key[-5:] == 'Reply':
+                            request_type = running_key
+                    running_key = ''
+                    running_block = []
+                else:
+                    line = line.strip()
+                    if line.find('//') != 0 and line.find('/*') != 0:
+                        running_block.append(line)
+    for name, members in blocks.iteritems():
+        if name[-6:] == 'Server':
+            gen_server(name, members, request_type, reply_type)
+        elif name[-6:] == 'Client':
+            gen_client(name, members, request_type, reply_type)
+
+    return blocks
+
+
 if __name__ == '__main__':
     system = get_system()
     if system[0] not in os_info:
@@ -126,10 +217,12 @@ if __name__ == '__main__':
         else:
             break
     target_path = os.path.dirname(input_file)
+    output_file = input_file[:-5] + 'pb.go'
     try:
         run_shell(['protoc', '-I', target_path, '--go_out=plugins=grpc:%s' % (target_path),
                    input_file], raiseError=True)
-        print('I did a good job.')
+        print('I did a good job generating pb.go. Now analysing the file')
+        parse_pbgo(output_file)
         sys.exit(0)
     except Exception as e:
         exit('bro, I tried. QQ :  %s' % (e))

@@ -208,6 +208,7 @@ def check_env():
 
 
 if __name__ == '__main__':
+    check_env()
 
     if len(sys.argv) == 1:
         print 'I have done what I can. Bye.'

@@ -1,5 +1,5 @@
 from distutils.core import setup
-ver = '0.95'
+ver = '0.96'
 setup(
     name='cesium_grpc',
     packages=['cesium_grpc'],  # this must be the same as the name above

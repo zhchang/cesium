@@ -1,2 +1,2 @@
 #!/bin/sh
-python -m cesium_grpc
+python -m cesium_grpc $1

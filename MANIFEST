@@ -2,4 +2,4 @@
 setup.cfg
 setup.py
 cesium_grpc/__init__.py
-cesium_grpc/cesium.py
+cesium_grpc/__main__.py

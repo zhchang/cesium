@@ -41,6 +41,10 @@ def run_shell(args, **kwargs):
         raise e
     return r
 
+
+system = ()
+osinfo = {}
+
 os_info = {
     'Linux2': {
         'protoc': {
@@ -179,7 +183,8 @@ def parse_pbgo(path):
     return blocks
 
 
-if __name__ == '__main__':
+def check_env():
+    global system, osinfo
     system = get_system()
     if system[0] not in os_info:
         exit('man, you are using some unsupported system.')
@@ -201,6 +206,9 @@ if __name__ == '__main__':
     if which('protoc') == None:
         setup_protoc()
 
+
+if __name__ == '__main__':
+
     if len(sys.argv) == 1:
         print 'I have done what I can. Bye.'
         sys.exit(0)
@@ -217,6 +225,8 @@ if __name__ == '__main__':
         else:
             break
     target_path = os.path.dirname(input_file)
+    if target_path == '':
+        target_path = '.'
     output_file = input_file[:-5] + 'pb.go'
     try:
         run_shell(['protoc', '-I', target_path, '--go_out=plugins=grpc:%s' % (target_path),

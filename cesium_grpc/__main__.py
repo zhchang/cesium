@@ -167,7 +167,7 @@ def parse_pbgo(path):
                         if running_key[-7:] == 'Request':
                             request_type = running_key
                         elif running_key[-5:] == 'Reply':
-                            request_type = running_key
+                            reply_type = running_key
                     running_key = ''
                     running_block = []
                 else:

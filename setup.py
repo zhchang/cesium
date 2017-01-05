@@ -1,7 +1,7 @@
 from distutils.core import setup
 setup(
-    name='cesium',
-    packages=['cesium'],  # this must be the same as the name above
+    name='cesium-grpc',
+    packages=['cesium-grpc'],  # this must be the same as the name above
     version='0.1',
     description='a grpc code generator',
     author='chang',

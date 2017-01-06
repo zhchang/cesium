@@ -144,7 +144,7 @@ def gen_server(name, members):
 method_template = '''
 // {api-name} do rpc call
 func {api-name}(ctx context.Context, cc *grpc.ClientConn, in *pb.{request-type}, opts ...grpc.CallOption)(*pb.{reply-type}, error){
-    return New{client-name}(cc).{api-name}(ctx, in, opts)
+    return pb.New{client-name}(cc).{api-name}(ctx, in, opts)
 }
 '''
 

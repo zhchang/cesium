@@ -107,6 +107,27 @@ func (*{server-name}) {api-name}(ctx context.Context, request *pb.{api-request})
 '''
 
 
+def can_write(path):
+    print 'validating ' + path
+    try:
+        with open(path, 'w'):
+            return True
+    except:
+        return False
+
+
+def output_to_file(what, content):
+    try:
+        output = ask_until_right('where do you want to write %s to?' % (what), [
+            'quit'], can_write)
+        with open(output, 'w') as f:
+            f.write(content)
+            print 'done writing to that.'
+    except:
+        print 'I ll print to stdout then'
+        print content
+
+
 def gen_server(name, members):
     name += 'Impl'
     generated = server_template.replace('{server-name}', name)
@@ -117,7 +138,7 @@ def gen_server(name, members):
         api = api.replace('{api-request}', member['request'])
         api = api.replace('{api-reply}', member['reply'])
         generated += api
-    print generated
+    output_to_file('server impl', generated)
 
 
 method_template = '''
@@ -136,7 +157,7 @@ def gen_client(name, members):
         api = api.replace('{request-type}', member['request'])
         api = api.replace('{reply-type}', member['reply'])
         generated += api
-    print generated
+    output_to_file('client impl', generated)
 
 
 def parse_api(line, types):
@@ -233,6 +254,28 @@ def check_env():
         setup_protoc()
 
 
+def ask(prompt, choices):
+    suffix = '[' + '/'.join(choices) + ']?'
+    while True:
+        choice = raw_input(prompt + suffix)
+        if choice in choices:
+            return choice
+        print 'dude, I mean ' + suffix
+
+
+def ask_until_right(prompt, quit_list, validator):
+    while True:
+        if len(quit_list) > 0:
+            reply = raw_input('%s type %s to quit\n' % (prompt, quit_list))
+        else:
+            reply = raw_input(prompt)
+        if reply in quit_list:
+            raise Exception('quit')
+        if validator(reply):
+            return reply
+        print 'I dont think that works. maybe we should try again.'
+
+
 if __name__ == '__main__':
     check_env()
 
@@ -241,16 +284,12 @@ if __name__ == '__main__':
         sys.exit(0)
 
     input_file = sys.argv[1]
-    while True:
-        if not os.path.exists(input_file):
-            choice = raw_input(
-                'I dont think %s exists, care to give me another one?[Y/N]' % (input_file))
-            if choice == 'Y' or choice == 'y':
-                input_file = raw_input('tell me then:')
-            else:
-                exit('ok dude, later.')
-        else:
-            break
+    if not os.path.exists(input_file):
+        try:
+            input_file = ask_until_right('where is the .proto file?', [
+                'gg', 'no', 'stop'], os.path.exists)
+        except:
+            exit('ok then.')
     target_path = os.path.dirname(input_file)
     if target_path == '':
         target_path = '.'

@@ -3,6 +3,8 @@ import sys
 import urllib
 import platform
 import subprocess
+import logging
+from sets import Set
 
 
 def which(program):
@@ -99,23 +101,21 @@ type {server-name} struct{
 '''
 api_template = '''
 // {api-name} impls grpc server handler interface
-func (*{server-name}) {api-body}{
+func (*{server-name}) {api-name}(ctx context.Context, request *pb.{api-request})(*pb.{api-reply}, error){
     // TODO: implement this API
 }
 '''
 
 
-def gen_server(name, members, request_type, reply_type):
+def gen_server(name, members):
     name += 'Impl'
     generated = server_template.replace('{server-name}', name)
     for member in members:
-        api_name = member[:member.find('(')]
         api = api_template
-        api = api.replace('{api-name}', api_name)
+        api = api.replace('{api-name}', member['name'])
         api = api.replace('{server-name}', name)
-        api = api.replace('{api-body}', member)
-        api = api.replace('*' + request_type, '*pb.' + request_type)
-        api = api.replace('*' + reply_type, '*pb.' + reply_type)
+        api = api.replace('{api-request}', member['request'])
+        api = api.replace('{api-reply}', member['reply'])
         generated += api
     print generated
 
@@ -128,26 +128,57 @@ func {api-name}(ctx context.Context, cc *grpc.ClientConn, in *pb.{request-type},
 '''
 
 
-def gen_client(name, members, request_type, reply_type):
+def gen_client(name, members):
     generated = ''
     for member in members:
-        api_name = member[:member.find('(')]
-        api = method_template.replace('{api-name}', api_name)
+        api = method_template.replace('{api-name}', member['name'])
         api = api.replace('{client-name}', name)
-        api = api.replace('{request-type}', request_type)
-        api = api.replace('{reply-type}', reply_type)
+        api = api.replace('{request-type}', member['request'])
+        api = api.replace('{reply-type}', member['reply'])
         generated += api
     print generated
 
 
+def parse_api(line, types):
+    api = {}
+    api['name'] = line[:line.find('(')]
+    items = line.split(' ')
+    for item in items:
+        m1 = item.find('*')
+        if m1 != -1:
+            payload = item[m1 + 1:]
+            if payload.find(',') != -1:
+                payload = payload[:payload.find(',')]
+            elif payload.find(')') != -1:
+                payload = payload[:payload.find(')')]
+            if payload in types:
+                if 'request' not in api:
+                    api['request'] = payload
+                elif 'reply' not in api:
+                    api['reply'] = payload
+
+    return api
+
+
+def parse_types(path):
+    types = Set()
+    with open(path, 'r') as f:
+        for line in f.xreadlines():
+            line = line.rstrip()
+            if line.find('type ') == 0:
+                items = line.split(' ', 4)
+                if items[2] == 'struct' and not items[1][0].islower():
+                    types.add(items[1])
+    return types
+
+
 def parse_pbgo(path):
+    types = parse_types(path)
     blocks = {}
     flag = 'searching'
     running_block = []
     running_key = ''
     valid_block = False
-    request_type = ''
-    reply_type = ''
     with open(path, 'r') as f:
         for line in f.xreadlines():
             line = line.rstrip()
@@ -163,22 +194,17 @@ def parse_pbgo(path):
                     flag = 'searching'
                     if valid_block:
                         blocks[running_key] = running_block
-                    else:
-                        if running_key[-7:] == 'Request':
-                            request_type = running_key
-                        elif running_key[-5:] == 'Reply':
-                            reply_type = running_key
                     running_key = ''
                     running_block = []
                 else:
                     line = line.strip()
-                    if line.find('//') != 0 and line.find('/*') != 0:
-                        running_block.append(line)
+                    if line.find('//') != 0:
+                        running_block.append(parse_api(line, types))
     for name, members in blocks.iteritems():
         if name[-6:] == 'Server':
-            gen_server(name, members, request_type, reply_type)
+            gen_server(name, members)
         elif name[-6:] == 'Client':
-            gen_client(name, members, request_type, reply_type)
+            gen_client(name, members)
 
     return blocks
 
@@ -236,4 +262,4 @@ if __name__ == '__main__':
         parse_pbgo(output_file)
         sys.exit(0)
     except Exception as e:
-        exit('bro, I tried. QQ :  %s' % (e))
+        logging.exception('bro, something really wrong')

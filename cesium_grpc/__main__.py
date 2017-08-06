@@ -301,4 +301,4 @@ if __name__ == '__main__':
         parse_pbgo(output_file)
         sys.exit(0)
     except Exception as e:
-        logging.exception('bro, something really wrong')
+        logging.exception('bro, something went really wrong: {}'.format(e))
